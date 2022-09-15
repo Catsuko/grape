@@ -370,6 +370,34 @@ describe Grape::Endpoint do
       expect(json['nested'].keys).to eq %w[fourth]
       expect(json['nested']['fourth']).to eq '4'
     end
+
+    context 'when parameters are conditional' do
+      before do
+        subject.get '/dummy' do
+        end
+        subject.params do
+          optional :order, type: String, values: %w[best new]
+          given order: ->(val) { val == 'best' } do
+            optional :min_score, type: Integer
+          end
+        end
+        subject.get '/declared_with_given' do
+          declared(params)
+        end
+      end
+
+      it 'includes parameter when condition is met' do
+        get '/declared_with_given?order=best&min_score=100'
+        expect(last_response.status).to eq(200)
+        expect(JSON.parse(last_response.body)).to match('order' => 'best', 'min_score' => 100)
+      end
+
+      it 'excludes parameter when condition is not met' do
+        get '/declared_with_given?order=new&min_score=100'
+        expect(last_response.status).to eq(200)
+        expect(JSON.parse(last_response.body)).to match('order' => 'new')
+      end
+    end
   end
 
   describe '#declared; call from child namespace' do
